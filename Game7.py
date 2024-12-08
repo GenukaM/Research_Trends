@@ -5,8 +5,8 @@ from enum import Enum
 
 # Constants
 WIDTH, HEIGHT = 600, 600
-GRID_SIZE = 10
-CELL_SIZE = WIDTH // GRID_SIZE
+GRID_SIZE =20
+CELL_SIZE = 30
 FPS = 30
 
 # Colors
@@ -19,16 +19,28 @@ BLUE = (0, 0, 255)
 
 # Maze Layout
 maze = [
-    [2, 2, 2, 2, 0, 0, 0, 2, 2, 2],
-    [2, 2, 2, 2, 0, 0, 0, 2, 2, 2],
-    [2, 2, 2, 2, 0, 0, 0, 2, 2, 2],
-    [2, 2, 2, 2, 0, 0, 0, 2, 2, 2],
-    [2, 2, 2, 2, 0, 0, 0, 2, 2, 2],
-    [2, 2, 2, 2, 0, 0, 0, 2, 2, 2],
-    [2, 2, 2, 2, 0, 0, 0, 2, 2, 2],
-    [2, 2, 2, 2, 0, 0, 0, 2, 2, 2],
-    [2, 2, 2, 2, 0, 0, 0, 2, 2, 2],
-    [2, 2, 2, 2, 0, 0, 0, 2, 2, 2],
+    [2,2,2,2,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2],
+    [2,2,2,2,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2],
+    [2,2,2,2,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2],
+    [2,2,2,2,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2],
+    [2,2,2,2,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2],
+    [2,2,2,2,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2],
+    [2,2,2,2,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2],
+    [2,2,2,2,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2],
+    [2,2,2,2,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2],
+    [2,2,2,2,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2],
+    [2,2,2,2,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2],
+    [2,2,2,2,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2],
+    [2,2,2,2,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2],
+    [2,2,2,2,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2],
+    [2,2,2,2,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2],
+    [2,2,2,2,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2],
+    [2,2,2,2,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2],
+    [2,2,2,2,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2],
+    [2,2,2,2,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2],
+    [2,2,2,2,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2],
+  
+    
 ]
 
 # NPC and FSM Logic
@@ -43,7 +55,7 @@ class NPC:
         self.goal = self.validate_goal(goal)  # Ensure goal is valid
         self.path = self.calculate_path(start, self.goal)
         self.fsm = NPCState.MOVING
-        self.speed = 30  # Slower speed for movement
+        self.speed = 50  # Slower speed for movement
         self.frame_counter = 0
 
     def validate_goal(self, goal):
@@ -124,11 +136,11 @@ class NPC:
         x, y = self.position
         pygame.draw.rect(screen, RED, (x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE))
 
-# Barrier Logic
 class Barriers:
     def __init__(self):
         self.barriers = []
         self.frame_counter = 0
+        self.travel_counter = 0  # New counter to track node travel distance
 
     def spawn_barrier(self):
         """Spawn a barrier at a random top position."""
@@ -138,24 +150,28 @@ class Barriers:
         self.barriers.append((x, 0))
 
     def update(self):
-        """Move barriers down and spawn a new one every 2 nodes."""
+        """Move barriers down and spawn a new one after they travel 2 nodes."""
         self.frame_counter += 1
-        if self.frame_counter % 4 == 0:  # Slow barrier speed (move every 4 frames)
+        if self.frame_counter % 8 == 0:  # Slow barrier speed (move every 8 frames)
             self.frame_counter = 0
             new_barriers = []
             for x, y in self.barriers:
                 maze[y][x] = 0  # Clear previous position
                 if y + 1 < GRID_SIZE:
                     new_barriers.append((x, y + 1))
+                    if y + 1 > 1:  # Check if a barrier has traveled two nodes
+                        self.travel_counter += 1  # Increment travel counter
             self.barriers = new_barriers
 
-            # Every two nodes, spawn a new barrier
-            if len(self.barriers) % 2 == 0:
+            # Spawn a new barrier after one has traveled 2 nodes
+            if self.travel_counter >= len(self.barriers) * 4: # Delay condition
+                self.travel_counter = 0  # Reset counter
                 self.spawn_barrier()
 
     def draw(self, screen):
         for x, y in self.barriers:
             pygame.draw.rect(screen, BLUE, (x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE))
+
 
 # Initialize Pygame
 pygame.init()
