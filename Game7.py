@@ -38,9 +38,7 @@ maze = [
     [2,2,2,2,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2],
     [2,2,2,2,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2],
     [2,2,2,2,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2],
-    [2,2,2,2,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2],
-  
-    
+    [2,2,2,2,2,2,2,2,2,0,0,0,2,2,2,2,2,2,2,2], 
 ]
 
 # NPC and FSM Logic
@@ -55,7 +53,7 @@ class NPC:
         self.goal = self.validate_goal(goal)  # Ensure goal is valid
         self.path = self.calculate_path(start, self.goal)
         self.fsm = NPCState.MOVING
-        self.speed = 50  # Slower speed for movement
+        self.speed = 10  # Slower speed for movement
         self.frame_counter = 0
 
     def validate_goal(self, goal):
