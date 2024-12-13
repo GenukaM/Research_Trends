@@ -1,24 +1,27 @@
 import pygame
 import random
-import heapq
 from enum import Enum
 
 # Constants
 WIDTH, HEIGHT = 600, 600
-GRID_WIDTH, GRID_HEIGHT = 3, 20  # 3 lanes (width) and 20 height
+GRID_WIDTH, GRID_HEIGHT = 20, 20  # 3 lanes in the middle, plus 2 columns on each side
 CELL_SIZE = 30
 FPS = 10  # Slow down the frame rate for better visualization
 
 # Colors
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
-GRAY = (128, 128, 128)
-GREEN = (0, 255, 0)
-RED = (255, 0, 0)
-BLUE = (0, 0, 255)
+GRAY = (0, 0, 0)
+RED = (255, 89, 0)
+BLUE =  (255, 255, 255)
+GREEN = (128, 128, 128)
+YELLOW =(128, 128, 128)
 
-# Maze Layout (Road with 3 lanes)
-maze = [[0] * GRID_WIDTH for _ in range(GRID_HEIGHT)]  # All cells are open spaces (0)
+# Maze Layout (Road with 3 lanes in the middle)
+maze = [[1] * GRID_WIDTH for _ in range(GRID_HEIGHT)]  # All cells are pavement (1)
+for y in range(GRID_HEIGHT):
+    for x in range(10, 13):  # Set columns 10, 11, 12 as the road
+        maze[y][x] = 0
 
 # NPC and FSM Logic
 class NPCState(Enum):
@@ -35,8 +38,6 @@ class NPC:
         self.path = [start]  # Incremental path construction starts with the start position
         self.visited = []  # Track visited cells for backtracking
         self.fsm = NPCState.MOVING
-        self.speed = 1  # Move one node at a time
-        self.frame_counter = 0
 
     def heuristic(self, a, b):
         """Manhattan distance as heuristic"""
@@ -73,7 +74,6 @@ class NPC:
 
         # Choose the best neighbor based on heuristic
         next_cell = min(neighbors, key=lambda n: self.heuristic(n, self.goal))
-        self.update_heuristic(current, next_cell)
 
         # Handle backtracking if we're revisiting
         if next_cell in self.visited:
@@ -94,12 +94,6 @@ class NPC:
         else:
             print("No path to backtrack. Stuck!")
 
-    def update_heuristic(self, current, next_cell):
-        """Update the heuristic dynamically."""
-        current_h = self.heuristic(current, self.goal)
-        next_h = self.heuristic(next_cell, self.goal)
-        maze[current[1]][current[0]] = min(current_h, next_h)
-
     def draw(self, screen):
         """Draw the NPC (red rectangle) on the screen."""
         x, y = self.position
@@ -109,12 +103,11 @@ class NPC:
 class Barrier:
     def __init__(self):
         self.barriers = []
-        self.frame_counter = 0
         self.initial_spawned = False
 
     def spawn_barrier(self):
         """Spawn a barrier at a random top row (row 0)."""
-        x = random.randint(0, GRID_WIDTH - 1)  # Random column
+        x = random.randint(10, 12)  # Random column within the road
         self.barriers.append((x, 0))  # Spawn in the top row
 
     def update(self):
@@ -122,17 +115,15 @@ class Barrier:
         if not self.initial_spawned:
             # Initial spawn of 4 vehicles
             for _ in range(4):
-                self.barriers.append((random.randint(0, GRID_WIDTH - 1), random.randint(0, GRID_HEIGHT - 1)))  # Full random placement
+                self.barriers.append((random.randint(10, 12), random.randint(0, GRID_HEIGHT - 1)))
             self.initial_spawned = True
 
-        # Move barriers down by one step
         new_barriers = []
         for x, y in self.barriers:
             maze[y][x] = 0  # Clear the previous position
             if y + 1 < GRID_HEIGHT:
                 new_barriers.append((x, y + 1))  # Move down
             else:
-                # Respawn in the top row
                 self.spawn_barrier()
 
         self.barriers = new_barriers
@@ -159,10 +150,11 @@ def draw_grid(screen, npc, barriers):
     # Draw maze grid (Road)
     for y in range(GRID_HEIGHT):
         for x in range(GRID_WIDTH):
-            color = WHITE
-            if maze[y][x] == 1:  # If there is a barrier
+            if 10 <= x <= 12:  # Middle lanes
                 color = GRAY
-            pygame.draw.rect(screen, color, (x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE), 1)
+            else:  # Left and right nodes
+                color = YELLOW if x < 10 else GREEN
+            pygame.draw.rect(screen, color, (x * CELL_SIZE, y * CELL_SIZE, CELL_SIZE, CELL_SIZE), 0)
 
     # Draw NPC and Barriers
     npc.draw(screen)
@@ -174,12 +166,15 @@ def draw_grid(screen, npc, barriers):
 def restart_game(npc, barriers):
     """Restart the game by resetting the maze, NPC, and barriers."""
     global maze
-    maze = [[0] * GRID_WIDTH for _ in range(GRID_HEIGHT)]  # Reset maze
+    maze = [[1] * GRID_WIDTH for _ in range(GRID_HEIGHT)]  # Reset maze
+    for y in range(GRID_HEIGHT):
+        for x in range(10, 13):  # Set columns 10, 11, 12 as the road
+            maze[y][x] = 0
 
     # Reset NPC's position and goal
-    npc.position = (random.randint(0, GRID_WIDTH - 1), GRID_HEIGHT - 1)  # Start at a random bottom position
+    npc.position = (random.randint(10, 12), GRID_HEIGHT - 1)  # Start in a random middle-lane bottom position
     npc.previous_position = None  # Reset previous position
-    npc.goal = (random.randint(0, GRID_WIDTH - 1), 0)  # Set a random top goal
+    npc.goal = (random.randint(10, 12), 0)  # Set a random middle-lane top goal
     npc.path = [npc.position]  # Start a fresh path
     npc.visited = []  # Clear visited nodes
     npc.fsm = NPCState.MOVING  # Set NPC state to moving
@@ -187,20 +182,24 @@ def restart_game(npc, barriers):
     # Reset barriers
     barriers.barriers.clear()
     barriers.initial_spawned = False
-    barriers.frame_counter = 0
+
+
 
 
 def main():
+
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("LRTA* Dynamic Road")
     clock = pygame.time.Clock()
 
     # Initialize NPC and barriers
-    npc = NPC(start=(random.randint(0, GRID_WIDTH - 1), GRID_HEIGHT - 1), goal=(random.randint(0, GRID_WIDTH - 1), 0))
+    npc = NPC(start=(random.randint(10, 12), GRID_HEIGHT - 1), goal=(random.randint(10, 12), 0))
     barriers = Barrier()
 
-    frame_counter = 0  # Shared counter for synchronized movement
+    frame_counter = 0 
+    collision_count = 0
+    Success_count = 0 # Shared counter for synchronized movement
     running = True
 
     while running:
@@ -219,18 +218,30 @@ def main():
         # Check for collision or path crossing
         if barriers.check_collision(npc.position, npc.previous_position):
             print("Collision detected! Restarting game...")
+            collision_count +=1
+            print(collision_count)
             restart_game(npc, barriers)
 
         # Check if the NPC reached the goal
         if npc.fsm == NPCState.GOAL_REACHED:
             print("Goal reached! Restarting game...")
+            Success_count +=1
             restart_game(npc, barriers)
 
         # Draw the grid, NPC, and barriers
         draw_grid(screen, npc, barriers)
 
+        font = pygame.font.SysFont(None, 24)
+        collision_text = font.render(f"Collisions: {collision_count}", True, BLACK)
+        success_text = font.render(f"Successes: {Success_count}", True, BLACK)
+        screen.blit(collision_text, (10, 10))
+        screen.blit(success_text, (10, 40))
+
         # Control the frame rate
+        pygame.display.flip()
         clock.tick(FPS)
+
+    
 
     pygame.quit()
 
