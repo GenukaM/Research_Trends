@@ -6,16 +6,16 @@ from enum import Enum
 WIDTH, HEIGHT = 600, 600
 GRID_WIDTH, GRID_HEIGHT = 20, 20  # 3 lanes in the middle, plus 2 columns on each side
 CELL_SIZE = 30
-FPS = 30  # Keep the frame rate higher for smoother movement
+FPS = 10  # Slow down the frame rate for better visualization
 
 # Colors
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 GRAY = (0, 0, 0)
 RED = (255, 89, 0)
-BLUE = (255, 255, 255)
+BLUE =  (255, 255, 255)
 GREEN = (128, 128, 128)
-YELLOW = (128, 128, 128)
+YELLOW =(128, 128, 128)
 
 # Maze Layout (Road with 3 lanes in the middle)
 maze = [[1] * GRID_WIDTH for _ in range(GRID_HEIGHT)]  # All cells are pavement (1)
@@ -120,7 +120,7 @@ class Barrier:
         x = random.randint(10, 12)  # Random column within the road
         self.barriers.append((x, 0))  # Spawn in the top row
 
-    def update(self, barrier_move_delay, frame_counter):
+    def update(self):
         """Move barriers down one step and respawn them in the top row when they reach the bottom."""
         if not self.initial_spawned:
             # Initial spawn of 4 vehicles
@@ -128,17 +128,15 @@ class Barrier:
                 self.barriers.append((random.randint(10, 12), random.randint(0, GRID_HEIGHT - 1)))
             self.initial_spawned = True
 
-        # Move barriers down every `barrier_move_delay` frames
-        if frame_counter % barrier_move_delay == 0:
-            new_barriers = []
-            for x, y in self.barriers:
-                maze[y][x] = 0  # Clear the previous position
-                if y + 1 < GRID_HEIGHT:
-                    new_barriers.append((x, y + 1))  # Move down
-                else:
-                    self.spawn_barrier()
+        new_barriers = []
+        for x, y in self.barriers:
+            maze[y][x] = 0  # Clear the previous position
+            if y + 1 < GRID_HEIGHT:
+                new_barriers.append((x, y + 1))  # Move down
+            else:
+                self.spawn_barrier()
 
-            self.barriers = new_barriers
+        self.barriers = new_barriers
 
     def draw(self, screen):
         for x, y in self.barriers:
@@ -206,39 +204,51 @@ def main():
     npc = NPC(start=(random.randint(10, 12), GRID_HEIGHT - 1), goal=(random.randint(10, 12), 0))
     barriers = Barrier()
 
-    npc_move_delay = 15  # Delay for NPC movement in frames (slows down the NPC)
-    barrier_move_delay = 15  # Delay for barrier movement in frames (slows down the barriers)
-    frame_counter = 0
+    frame_counter = 0 
     collision_count = 0
-    success_count = 0
+    Success_count = 0 # Shared counter for synchronized movement
+    running = True
 
-    while True:
-        frame_counter += 1
-        barriers.update(barrier_move_delay, frame_counter)  # Move barriers down and spawn new ones
-
+    while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
-                return
+                running = False
 
-        # Check for collisions with barriers
+        # Increment the shared frame counter
+        frame_counter += 1
+
+        # Update NPC and barriers only once every frame
+        if frame_counter % FPS == 0:
+            barriers.update()
+            npc.update(barriers)
+
+        # Check for collision or path crossing
         if barriers.check_collision(npc.position, npc.previous_position):
-            print("Collision detected! Resetting NPC and restarting the game...")
+            print("Collision detected! Restarting game...")
             collision_count += 1
             restart_game(npc, barriers)
 
-        if npc.fsm == NPCState.MOVING:
-            if frame_counter % npc_move_delay == 0:  # Only move NPC every `npc_move_delay` frames
-                npc.update(barriers)  # Update NPC position using LST-A*
-        
+        # Check if the NPC reached the goal
         if npc.fsm == NPCState.GOAL_REACHED:
-            print(f"Goal Reached! Restarting game...")
-            success_count += 1
+            print("Goal reached! Restarting game...")
+            Success_count += 1
             restart_game(npc, barriers)
 
-        draw_grid(screen, npc, barriers)  # Draw updated grid
+        # Draw the grid, NPC, and barriers
+        draw_grid(screen, npc, barriers)
 
-        clock.tick(FPS)  # Control the frame rate
+        font = pygame.font.SysFont(None, 24)
+        collision_text = font.render(f"Collisions: {collision_count}", True, BLACK)
+        success_text = font.render(f"Successes: {Success_count}", True, BLACK)
+        screen.blit(collision_text, (10, 10))
+        screen.blit(success_text, (10, 40))
+
+        # Control the frame rate
+        pygame.display.flip()
+        clock.tick(FPS)
+
+    pygame.quit()
+
 
 if __name__ == "__main__":
     main()
